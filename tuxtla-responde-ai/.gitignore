@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.npm-cache/
+.npm-logs/
+.runlogs/
+.tools/
+.env
+test-evidence.png
+media-resp.json
+running.pids
+*.log

@@ -1,0 +1,11 @@
+{
+  "name": "09-telegram-bot",
+  "version": "1.0.0",
+  "description": "Bot de Telegram que consulta datos del programa vía API Gateway",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "license": "ISC",
+  "dependencies": {}
+}

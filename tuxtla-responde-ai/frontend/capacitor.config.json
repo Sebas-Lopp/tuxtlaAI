@@ -1,0 +1,8 @@
+{
+  "appId": "mx.tuxtla.responde",
+  "appName": "TuxtlaResponde",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http"
+  }
+}

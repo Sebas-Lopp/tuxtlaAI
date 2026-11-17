@@ -1,0 +1,19 @@
+# Backend "todo en uno" para Render.
+# Construye un solo contenedor que levanta los 8 microservicios + gateway (+ bot).
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Dependencias del sistema (curl para healthchecks)
+RUN apk add --no-cache curl
+
+# Copiar servicios y script de arranque
+COPY services ./services
+COPY deploy/start-all.sh ./start-all.sh
+RUN chmod +x ./start-all.sh
+
+# Instalar dependencias de cada servicio
+RUN for d in services/*/; do (cd "$d" && npm install --omit=dev --no-audit --no-fund); done
+
+EXPOSE 4000
+CMD ["sh", "./start-all.sh"]

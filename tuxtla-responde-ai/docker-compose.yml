@@ -1,0 +1,206 @@
+services:
+  # ============================================================
+  # Microservicios (solo red interna — NO se publican al host)
+  # Regla de Oro: todo entra por el API Gateway (puerto 4000)
+  # ============================================================
+
+  incidents:
+    build: ./services/01-citizen-incident-service
+    container_name: tuxtla_incidents
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: "3306"
+      DB_USER: adminSebas
+      DB_PASSWORD: megadethxd
+      DB_NAME: tuxtla_responde
+      PORT: "3000"
+      JWT_SECRET: tuxtla-responde-secret-2026
+      RABBITMQ_URL: amqp://tuxtla:tuxtla123@rabbitmq:5672
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  dispatch:
+    build: ./services/02-dispatch-service
+    container_name: tuxtla_dispatch
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: "3306"
+      DB_USER: adminSebas
+      DB_PASSWORD: megadethxd
+      DB_NAME: tuxtla_dispatch
+      PORT: "3001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  transparency:
+    build: ./services/03-transparency-service
+    container_name: tuxtla_transparency
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: "3306"
+      DB_USER: adminSebas
+      DB_PASSWORD: megadethxd
+      DB_NAME: tuxtla_transparency
+      PORT: "3002"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  users:
+    build: ./services/04-users-service
+    container_name: tuxtla_users_service
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: "3306"
+      DB_USER: adminSebas
+      DB_PASSWORD: megadethxd
+      DB_NAME: tuxtla_users
+      PORT: "3003"
+      JWT_SECRET: tuxtla-responde-secret-2026
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  notifications:
+    build: ./services/05-notifications-service
+    container_name: tuxtla_notifications
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: "3306"
+      DB_USER: adminSebas
+      DB_PASSWORD: megadethxd
+      DB_NAME: tuxtla_notifications
+      PORT: "3004"
+      RABBITMQ_URL: amqp://tuxtla:tuxtla123@rabbitmq:5672
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  media:
+    build: ./services/06-media-evidence-service
+    container_name: tuxtla_media
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: "3306"
+      DB_USER: adminSebas
+      DB_PASSWORD: megadethxd
+      DB_NAME: tuxtla_media
+      PORT: "3005"
+      PUBLIC_BASE_URL: ""
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - uploads_data:/app/uploads
+    restart: unless-stopped
+
+  ai:
+    build: ./services/07-ai-vision-service
+    container_name: tuxtla_ai_vision
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: "3306"
+      DB_USER: adminSebas
+      DB_PASSWORD: megadethxd
+      DB_NAME: tuxtla_ai_triage
+      PORT: "3006"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # ============================================================
+  # API Gateway — único punto de entrada (puerto 4000)
+  # ============================================================
+  gateway:
+    build: ./services/08-api-gateway
+    container_name: tuxtla_api_gateway
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: "4000"
+      INCIDENTS_URL: http://incidents:3000
+      DISPATCH_URL: http://dispatch:3001
+      TRANSPARENCY_URL: http://transparency:3002
+      USERS_URL: http://users:3003
+      NOTIFICATIONS_URL: http://notifications:3004
+      MEDIA_URL: http://media:3005
+      AI_URL: http://ai:3006
+    depends_on:
+      - incidents
+      - dispatch
+      - transparency
+      - users
+      - notifications
+      - media
+      - ai
+    restart: unless-stopped
+
+  # ============================================================
+  # Frontend Web (Dashboard + App ciudadana)
+  # ============================================================
+  frontend:
+    build: ./frontend
+    container_name: tuxtla_frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+  # ============================================================
+  # n8n — Automatización (opcional, para Telegram y webhooks)
+  # ============================================================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: tuxtla_n8n
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_HOST: localhost
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      GENERIC_TIMEZONE: America/Mexico_City
+      N8N_USER_MANAGEMENT_DISABLED: "true"
+      N8N_SECURE_COOKIE: "false"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # ============================================================
+  # Bot de Telegram — responde /stats, /reportes y /resumen
+  # ============================================================
+  telegram-bot:
+    build: ./services/09-telegram-bot
+    container_name: tuxtla_telegram_bot
+    environment:
+      TELEGRAM_TOKEN: "9154661333:AAF59SgusyMXELyqjmJYQU_VGAOiNUAaeNw"
+      GATEWAY_URL: http://gateway:4000
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+  # ============================================================
+  # RabbitMQ — bus de eventos entre microservicios
+  # ============================================================
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: tuxtla_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: tuxtla
+      RABBITMQ_DEFAULT_PASS: tuxtla123
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+
+volumes:
+  uploads_data:
+  n8n_data:
+  rabbitmq_data:

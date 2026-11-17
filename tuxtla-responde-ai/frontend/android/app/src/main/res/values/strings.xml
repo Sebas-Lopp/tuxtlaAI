@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">com.tuxtla.app</string>
+    <string name="title_activity_main">com.tuxtla.app</string>
+    <string name="package_name">com.tuxtla.responde</string>
+    <string name="custom_url_scheme">com.tuxtla.responde</string>
+</resources>
